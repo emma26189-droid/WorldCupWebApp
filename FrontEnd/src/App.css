@@ -338,6 +338,13 @@ html, body {
   margin-bottom: -25px;
 }
 
+.sync-status {
+  text-align: center;
+  color: #d9f6ff;
+  font-weight: 700;
+  margin: 0 auto 16px;
+}
+
 .announcer-image {
   width: 86px;
   height: 98px;

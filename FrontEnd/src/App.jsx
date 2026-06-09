@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const PLAYERS_STORAGE_KEY = "worldcup-sweepstake-players";
-const ASSIGNMENTS_STORAGE_KEY = "worldcup-sweepstake-assignments";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const WS_URL = API_BASE_URL.startsWith("https://")
+  ? API_BASE_URL.replace("https://", "wss://")
+  : API_BASE_URL.replace("http://", "ws://");
+
 const GROUPS = {
   A: ["Mexico 🇲🇽", "South Africa 🇿🇦", "Korea Rep 🇰🇷", "Czechia 🇨🇿"],
   B: ["Canada 🇨🇦", "Bosnia & Herz 🇧🇦", "Qatar 🇶🇦", "Switzerland 🇨🇭"],
@@ -86,64 +89,131 @@ const TEAM_COLORS = {
 export default function App() {
   const [playerInput, setPlayerInput] = useState("");
   const [playerEmail, setPlayerEmail] = useState("");
-  const [players, setPlayers] = useState(() => {
-    try {
-      const savedPlayers = window.localStorage.getItem(PLAYERS_STORAGE_KEY);
-      if (!savedPlayers) return [];
-
-      const parsedPlayers = JSON.parse(savedPlayers);
-      if (!Array.isArray(parsedPlayers)) return [];
-
-      return parsedPlayers
-        .filter(player => player && typeof player.name === "string")
-        .map(player => ({
-          name: player.name,
-          email: typeof player.email === "string" ? player.email : ""
-        }));
-    } catch {
-      return [];
-    }
-  });
-  const [assignments, setAssignments] = useState(() => {
-    try {
-      const savedAssignments = window.localStorage.getItem(ASSIGNMENTS_STORAGE_KEY);
-      if (!savedAssignments) return {};
-
-      const parsedAssignments = JSON.parse(savedAssignments);
-      if (!parsedAssignments || typeof parsedAssignments !== "object" || Array.isArray(parsedAssignments)) {
-        return {};
-      }
-
-      return Object.fromEntries(
-        Object.entries(parsedAssignments).filter(
-          ([team, player]) => typeof team === "string" && typeof player === "string"
-        )
-      );
-    } catch {
-      return {};
-    }
-  });
+  const [players, setPlayers] = useState([]);
+  const [assignments, setAssignments] = useState({});
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentDrawPair, setCurrentDrawPair] = useState({ player: "", team: "" });
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...");
 
   const totalTeams = Object.values(GROUPS).flat().length;
   const leftGroups = Object.entries(GROUPS).filter(([g]) => ['A', 'B', 'C', 'D', 'E', 'F'].includes(g));
   const rightGroups = Object.entries(GROUPS).filter(([g]) => ['G', 'H', 'I', 'J', 'K', 'L'].includes(g));
   const canStartDraw = players.length === totalTeams && Object.keys(assignments).length < totalTeams;
 
-  useEffect(() => {
-    window.localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(players));
-  }, [players]);
+  const applyServerState = (state) => {
+    if (!state || typeof state !== "object") return;
+    setPlayers(Array.isArray(state.players) ? state.players : []);
+    setAssignments(state.assignments && typeof state.assignments === "object" ? state.assignments : {});
+    if (state.currentDrawPair && typeof state.currentDrawPair === "object") {
+      setCurrentDrawPair({
+        player: typeof state.currentDrawPair.player === "string" ? state.currentDrawPair.player : "",
+        team: typeof state.currentDrawPair.team === "string" ? state.currentDrawPair.team : ""
+      });
+    }
+  };
+
+  const callApi = async (path, options = {}) => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      },
+      ...options
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      const message = data?.detail || data?.error || "Request failed";
+      throw new Error(message);
+    }
+
+    return data;
+  };
 
   useEffect(() => {
-    window.localStorage.setItem(ASSIGNMENTS_STORAGE_KEY, JSON.stringify(assignments));
-  }, [assignments]);
+    let isMounted = true;
+    let socket;
 
-  const addPlayer = () => {
+    const syncInitialState = async () => {
+      try {
+        const state = await callApi("/state", { method: "GET" });
+        if (isMounted) {
+          applyServerState(state);
+        }
+      } catch {
+        if (isMounted) {
+          setConnectionStatus("Backend unavailable");
+        }
+      }
+    };
+
+    const connectWebSocket = () => {
+      socket = new WebSocket(`${WS_URL}/ws`);
+
+      socket.onopen = () => {
+        if (isMounted) {
+          setConnectionStatus("Live sync connected");
+        }
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message?.type === "state") {
+            applyServerState(message.payload);
+          }
+        } catch {
+          // Ignore malformed messages.
+        }
+      };
+
+      socket.onclose = () => {
+        if (isMounted) {
+          setConnectionStatus("Live sync disconnected");
+        }
+      };
+
+      socket.onerror = () => {
+        if (isMounted) {
+          setConnectionStatus("Live sync error");
+        }
+      };
+    };
+
+    syncInitialState();
+    connectWebSocket();
+
+    return () => {
+      isMounted = false;
+      if (socket) {
+        socket.close();
+      }
+    };
+  }, []);
+
+  const addPlayer = async () => {
     if (!playerInput.trim()) return;
-    setPlayers([...players, { name: playerInput.trim(), email: playerEmail.trim() }]);
-    setPlayerInput("");
-    setPlayerEmail("");
+
+    try {
+      const state = await callApi("/players", {
+        method: "POST",
+        body: JSON.stringify({
+          name: playerInput.trim(),
+          email: playerEmail.trim()
+        })
+      });
+      applyServerState(state);
+      setPlayerInput("");
+      setPlayerEmail("");
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
   const handleCSVUpload = (event) => {
@@ -177,29 +247,45 @@ export default function App() {
         }
       }
 
-      setPlayers(newPlayers);
-      setAssignments({});
+      callApi("/players/replace", {
+        method: "POST",
+        body: JSON.stringify({ players: newPlayers })
+      })
+        .then((state) => {
+          applyServerState(state);
+        })
+        .catch((error) => {
+          alert(error.message);
+        });
+
       event.target.value = '';
     };
     reader.readAsText(file);
   };
 
-  const handleAssignment = (group, team, player) => {
-    setAssignments(prev => ({
-      ...prev,
-      [team]: player
-    }));
+  const handleAssignment = async (group, team, player) => {
+    void group;
+    try {
+      const state = await callApi("/assignments", {
+        method: "POST",
+        body: JSON.stringify({ team, player })
+      });
+      applyServerState(state);
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
-  const clearPlayers = () => {
-    setPlayers([]);
-    setAssignments({});
-    setPlayerInput("");
-    setPlayerEmail("");
-    setIsDrawing(false);
-    setCurrentDrawPair({ player: "", team: "" });
-    window.localStorage.removeItem(PLAYERS_STORAGE_KEY);
-    window.localStorage.removeItem(ASSIGNMENTS_STORAGE_KEY);
+  const clearPlayers = async () => {
+    try {
+      const state = await callApi("/reset", { method: "POST", body: JSON.stringify({}) });
+      applyServerState(state);
+      setPlayerInput("");
+      setPlayerEmail("");
+      setIsDrawing(false);
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
   const exportResults = (drawPairs) => {
@@ -220,46 +306,36 @@ export default function App() {
     window.URL.revokeObjectURL(url);
   };
 
-  const startDraw = () => {
+  const startDraw = async () => {
     if (!canStartDraw || isDrawing) return;
 
     setIsDrawing(true);
 
     const allTeams = Object.values(GROUPS).flat();
-    const assignedTeams = new Set(Object.keys(assignments));
-    const assignedPlayers = new Set(Object.values(assignments));
 
-    const remainingTeams = allTeams.filter(team => !assignedTeams.has(team));
-    const remainingPlayers = players.filter(player => !assignedPlayers.has(player.name));
+    try {
+      const state = await callApi("/draw", {
+        method: "POST",
+        body: JSON.stringify({ teams: allTeams })
+      });
 
-    if (remainingTeams.length === 0 || remainingPlayers.length === 0) {
-      setIsDrawing(false);
-      return;
-    }
+      applyServerState(state);
 
-    const team = remainingTeams[Math.floor(Math.random() * remainingTeams.length)];
-    const player = remainingPlayers[Math.floor(Math.random() * remainingPlayers.length)];
-
-    const nextAssignments = {
-      ...assignments,
-      [team]: player.name
-    };
-
-    setCurrentDrawPair({ player: player.name, team });
-    setAssignments(nextAssignments);
-
-    if (Object.keys(nextAssignments).length === totalTeams) {
-      const drawPairs = Object.entries(nextAssignments).map(([assignedTeam, playerName]) => ({
+      if (Object.keys(state.assignments || {}).length === totalTeams) {
+        const drawPairs = Object.entries(state.assignments || {}).map(([assignedTeam, playerName]) => ({
         team: assignedTeam,
         player: players.find(p => p.name === playerName) || { name: playerName, email: "" }
       }));
 
-      exportResults(drawPairs);
+        exportResults(drawPairs);
+      }
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      window.setTimeout(() => {
+        setIsDrawing(false);
+      }, 250);
     }
-
-    window.setTimeout(() => {
-      setIsDrawing(false);
-    }, 250);
   };
 
   return (
@@ -270,6 +346,7 @@ export default function App() {
         className="uofg-logo"
       />
       <h1 className="fifa-title">FIFA WORLD CUP 2026 – SWEEPSTAKE DRAW</h1>
+      <p className="sync-status">{connectionStatus}</p>
 
       <div className="input-section">
         <div className="input-row">
