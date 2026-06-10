@@ -4,6 +4,7 @@ html, body {
   font-family: "Segoe UI", Arial, sans-serif;
   background: radial-gradient(circle at top, #0f172a, #020617);
   color: white;
+  overflow-x: hidden;
 }
 
 /* HEADER */
@@ -141,18 +142,10 @@ html, body {
 
 .fifa-title {
   text-align: center;
-  font-size: 2rem;
+  font-size: clamp(1.2rem, 3.5vw, 2rem);
   letter-spacing: 2px;
   margin-bottom: 30px;
   color: #fff;
-}
-
-.input-section {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
 }
 
 .input-section {
@@ -288,20 +281,21 @@ html, body {
 
 .groups-wrapper {
   display: flex;
-  gap: 200px;
+  gap: 64px;
   width: 100%;
   align-items: flex-start;
   justify-content: center;
-  padding: 0;
+  padding: 0 16px;
   overflow: visible;
-  margin-top: -2cm;
+  margin-top: -1rem;
 }
 
 .groups-container {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 0 0 280px;
+  flex: 0 1 280px;
+  min-width: 0;
 }
 
 .center-pot-section {
@@ -313,13 +307,13 @@ html, body {
   gap: 20px;
   overflow: visible;
   max-width: 500px;
-  min-width: 450px;
+  min-width: 0;
 }
 
 .announcer-section {
   position: relative;
   height: 160px;
-  width: 300px;
+  width: min(100%, 300px);
   max-width: 680px;
   z-index: 2;
   --announcer-offset-x: 180px;
@@ -345,6 +339,28 @@ html, body {
   margin: 0 auto 16px;
 }
 
+.enable-audio-button {
+  display: block;
+  margin: 0 auto 18px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd166, #ff9f1c);
+  color: #111;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(255, 159, 28, 0.25);
+}
+
+.enable-audio-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.enable-audio-button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
 .announcer-image {
   width: 86px;
   height: 98px;
@@ -355,8 +371,6 @@ html, body {
 
 .seb-image {
   width: 86px;
---seb-offset-x: -50px;
---seb-offset-y: -50px; 
   height: 98px;
   border-radius: 12px;
   object-fit: cover;
@@ -423,8 +437,9 @@ html, body {
 }
 
 .pot-image {
-  width: 520px;
-  height: 460px;
+  width: min(100%, 520px);
+  height: auto;
+  max-height: 460px;
   border-radius: 12px;
   object-fit: contain;
   position: relative;
@@ -521,6 +536,179 @@ html, body {
   border-collapse: collapse;
   color: white;
   font-size: 0.75rem;
+}
+
+@media (max-width: 1200px) {
+  .groups-wrapper {
+    gap: 28px;
+    margin-top: 0;
+  }
+
+  .center-pot-section {
+    max-width: 430px;
+  }
+
+  .announcer-section {
+    --announcer-offset-x: 120px;
+    --announcer-offset-y: -32px;
+    --seb-offset-x: -24px;
+    --seb-offset-y: -36px;
+    --bubble-left-offset-x: -100px;
+    --bubble-left-offset-y: 24px;
+    --bubble-right-offset-x: 170px;
+    --bubble-right-offset-y: -92px;
+  }
+
+  .speech-bubble {
+    width: 165px;
+  }
+}
+
+@media (max-width: 992px) {
+  .groups-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+    padding: 0 12px 24px;
+  }
+
+  .groups-wrapper > .center-pot-section {
+    order: 1;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .groups-wrapper > .groups-container {
+    order: 2;
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    flex: 1 1 auto;
+  }
+
+  .announcer-section {
+    height: 140px;
+    --announcer-offset-x: 86px;
+    --announcer-offset-y: -22px;
+    --seb-offset-x: 8px;
+    --seb-offset-y: -22px;
+    --bubble-left-offset-x: -28px;
+    --bubble-left-offset-y: 0;
+    --bubble-right-offset-x: 28px;
+    --bubble-right-offset-y: 0;
+    gap: 8px;
+  }
+
+  .speech-bubble {
+    width: min(42vw, 190px);
+    min-height: 66px;
+  }
+
+  .pot-image {
+    max-width: 440px;
+    transform: none;
+  }
+
+  .players-table-section {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .uofg-logo {
+    width: 220px;
+    margin-bottom: 10px;
+  }
+
+  .fifa-title {
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    padding: 0 10px;
+  }
+
+  .input-row {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .input-section {
+    padding: 0 10px;
+  }
+
+  .input-section input[type="text"],
+  .input-section button,
+  .draw-button {
+    width: 100%;
+  }
+
+  .csv-upload-row {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    text-align: center;
+  }
+
+  .csv-upload-row label {
+    white-space: normal;
+  }
+
+  .group-label {
+    font-size: 1.5rem;
+  }
+
+  .group-teams {
+    padding: 8px 6px;
+  }
+
+  .team-name {
+    min-width: 100px;
+    font-size: 0.68rem;
+  }
+
+  .player-assignment {
+    font-size: 0.72rem;
+  }
+
+  .announcer-section {
+    height: auto;
+    min-height: 96px;
+    --announcer-offset-x: 0;
+    --announcer-offset-y: 0;
+    --seb-offset-x: 0;
+    --seb-offset-y: 0;
+    --bubble-left-offset-x: 0;
+    --bubble-left-offset-y: 0;
+    --bubble-right-offset-x: 0;
+    --bubble-right-offset-y: 0;
+    gap: 10px;
+  }
+
+  .speech-bubble-left,
+  .speech-bubble-right,
+  .announcer-image,
+  .seb-image {
+    transform: none;
+  }
+
+  .speech-bubble {
+    width: calc(50% - 8px);
+    min-width: 140px;
+  }
+
+  .announcer-image,
+  .seb-image {
+    width: 68px;
+    height: 78px;
+  }
+
+  .pot-image {
+    max-width: 330px;
+  }
+
+  .players-table {
+    font-size: 0.68rem;
+  }
 }
 
 .players-table thead {

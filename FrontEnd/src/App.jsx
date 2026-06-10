@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const WS_URL = API_BASE_URL.startsWith("https://")
   ? API_BASE_URL.replace("https://", "wss://")
   : API_BASE_URL.replace("http://", "ws://");
+const DRAW_WELCOME_MESSAGE = "Welcome to the University of Glasgow FIFA World Cup 2026 SweepstakeDraw";
+const FEMALE_VOICE_NAME = (import.meta.env.VITE_FEMALE_VOICE_NAME || "").toLowerCase();
 
 const GROUPS = {
   A: ["Mexico 🇲🇽", "South Africa 🇿🇦", "Korea Rep 🇰🇷", "Czechia 🇨🇿"],
@@ -92,24 +94,217 @@ export default function App() {
   const [players, setPlayers] = useState([]);
   const [assignments, setAssignments] = useState({});
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isDrawStarting, setIsDrawStarting] = useState(false);
   const [currentDrawPair, setCurrentDrawPair] = useState({ player: "", team: "" });
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const lastSpokenPairRef = useRef("");
+  const backgroundMusicRef = useRef(null);
 
   const totalTeams = Object.values(GROUPS).flat().length;
   const leftGroups = Object.entries(GROUPS).filter(([g]) => ['A', 'B', 'C', 'D', 'E', 'F'].includes(g));
   const rightGroups = Object.entries(GROUPS).filter(([g]) => ['G', 'H', 'I', 'J', 'K', 'L'].includes(g));
   const canStartDraw = players.length === totalTeams && Object.keys(assignments).length < totalTeams;
 
+  const pickVoice = (preferredGender) => {
+    if (!window.speechSynthesis) return null;
+
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+
+    const femaleHints = ["female", "woman", "zira", "susan", "sara", "aria", "jenny", "siri"];
+    const maleHints = ["male", "man", "david", "mark", "guy", "george", "daniel"];
+    const hints = preferredGender === "female" ? femaleHints : maleHints;
+
+    if (preferredGender === "female" && FEMALE_VOICE_NAME) {
+      const configuredVoice = voices.find((voice) =>
+        voice.name.toLowerCase().includes(FEMALE_VOICE_NAME)
+      );
+      if (configuredVoice) {
+        return configuredVoice;
+      }
+    }
+
+    const matchedVoice = voices.find((voice) => {
+      const voiceName = `${voice.name} ${voice.voiceURI}`.toLowerCase();
+      return hints.some((hint) => voiceName.includes(hint));
+    });
+
+    if (matchedVoice) {
+      return matchedVoice;
+    }
+
+    if (preferredGender === "female") {
+      // Avoid obvious male voices when a female hint did not match.
+      const nonMaleVoice = voices.find((voice) => {
+        const voiceName = `${voice.name} ${voice.voiceURI}`.toLowerCase();
+        return !maleHints.some((hint) => voiceName.includes(hint));
+      });
+      return nonMaleVoice || null;
+    }
+
+    return matchedVoice || voices[0] || null;
+  };
+
+  const getSpokenTeamName = (team) => {
+    const hasFlagEmoji = /[\u{1F1E6}-\u{1F1FF}]{2}/u.test(team);
+    let cleaned = team
+      .normalize("NFKD")
+      .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, "")
+      .replace(/[\p{Extended_Pictographic}]/gu, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (hasFlagEmoji) {
+      cleaned = cleaned.replace(/\s+[A-Z]{2}$/, "").trim();
+    }
+
+    return cleaned.replace(/&/g, "and");
+  };
+
   const applyServerState = (state) => {
     if (!state || typeof state !== "object") return;
     setPlayers(Array.isArray(state.players) ? state.players : []);
     setAssignments(state.assignments && typeof state.assignments === "object" ? state.assignments : {});
+    setIsDrawing(Boolean(state.isDrawing));
     if (state.currentDrawPair && typeof state.currentDrawPair === "object") {
       setCurrentDrawPair({
         player: typeof state.currentDrawPair.player === "string" ? state.currentDrawPair.player : "",
         team: typeof state.currentDrawPair.team === "string" ? state.currentDrawPair.team : ""
       });
     }
+  };
+
+  useEffect(() => {
+    const player = currentDrawPair.player.trim();
+    const team = currentDrawPair.team.trim();
+    if (!audioEnabled || !player || !team) return;
+
+    const spokenKey = `${player}::${team}`;
+    if (lastSpokenPairRef.current === spokenKey) return;
+    lastSpokenPairRef.current = spokenKey;
+
+    if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") return;
+
+    const playerVoice = pickVoice("male");
+    const teamVoice = pickVoice("female");
+    const spokenTeam = getSpokenTeamName(team);
+
+    window.speechSynthesis.cancel();
+
+    const playerUtterance = new window.SpeechSynthesisUtterance(`Player selected: ${player}`);
+    playerUtterance.rate = 0.95;
+    playerUtterance.pitch = 0.95;
+    if (playerVoice) {
+      playerUtterance.voice = playerVoice;
+    }
+
+    const teamUtterance = new window.SpeechSynthesisUtterance(`Team selected: ${spokenTeam}`);
+    teamUtterance.rate = 0.95;
+    teamUtterance.pitch = 1.15;
+    if (teamVoice) {
+      teamUtterance.voice = teamVoice;
+    }
+
+    playerUtterance.onend = () => {
+      window.speechSynthesis.speak(teamUtterance);
+    };
+
+    window.speechSynthesis.speak(playerUtterance);
+  }, [audioEnabled, currentDrawPair]);
+
+  useEffect(() => {
+    const music = new Audio("/BackgroundMusic.mp3");
+    music.loop = true;
+    music.volume = 0.25;
+    backgroundMusicRef.current = music;
+
+    return () => {
+      music.pause();
+      backgroundMusicRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const music = backgroundMusicRef.current;
+    if (!music) return;
+
+    if (audioEnabled && !isDrawing && !isDrawStarting) {
+      music.play().catch(() => {
+        // Playback can fail until user interaction is granted by the browser.
+      });
+      return;
+    }
+
+    music.pause();
+  }, [audioEnabled, isDrawing, isDrawStarting]);
+
+  const enableAudio = () => {
+    setAudioEnabled(true);
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const playAudioFile = (src) => new Promise((resolve, reject) => {
+    const audio = new Audio(src);
+
+    const cleanup = () => {
+      audio.onended = null;
+      audio.onerror = null;
+    };
+
+    audio.onended = () => {
+      cleanup();
+      resolve();
+    };
+
+    audio.onerror = () => {
+      cleanup();
+      reject(new Error(`Failed to play ${src}`));
+    };
+
+    audio.play().catch((error) => {
+      cleanup();
+      reject(error);
+    });
+  });
+
+  const speakText = (text, preferredGender) => new Promise((resolve) => {
+    if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") {
+      resolve();
+      return;
+    }
+
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    const voice = pickVoice(preferredGender);
+    utterance.rate = 0.95;
+    utterance.pitch = preferredGender === "female" ? 1.15 : 0.95;
+    if (voice) {
+      utterance.voice = voice;
+    }
+
+    utterance.onend = () => resolve();
+    utterance.onerror = () => resolve();
+    window.speechSynthesis.speak(utterance);
+  });
+
+  const playDrawIntro = async () => {
+    if (!audioEnabled) return;
+
+    // Try requested file first, then fall back if only mp3 exists.
+    const kazooSources = ["/Kazoo.mp4", "/Kazoo.mp3"];
+    for (const source of kazooSources) {
+      try {
+        await playAudioFile(source);
+        break;
+      } catch {
+        // Try next source.
+      }
+    }
+
+    await speakText(DRAW_WELCOME_MESSAGE, "female");
   };
 
   const callApi = async (path, options = {}) => {
@@ -282,7 +477,6 @@ export default function App() {
       applyServerState(state);
       setPlayerInput("");
       setPlayerEmail("");
-      setIsDrawing(false);
     } catch (error) {
       alert(error.message);
     }
@@ -307,34 +501,33 @@ export default function App() {
   };
 
   const startDraw = async () => {
-    if (!canStartDraw || isDrawing) return;
+    if (!canStartDraw || isDrawing || isDrawStarting) return;
 
-    setIsDrawing(true);
+    if (backgroundMusicRef.current) {
+      backgroundMusicRef.current.pause();
+    }
+    setIsDrawStarting(true);
 
     const allTeams = Object.values(GROUPS).flat();
 
     try {
-      const state = await callApi("/draw", {
+      // Run full intro before starting the draw.
+      try {
+        await playDrawIntro();
+      } catch {
+        // If intro media fails, continue to draw startup.
+      }
+
+      const state = await callApi("/draw/start", {
         method: "POST",
         body: JSON.stringify({ teams: allTeams })
       });
 
       applyServerState(state);
-
-      if (Object.keys(state.assignments || {}).length === totalTeams) {
-        const drawPairs = Object.entries(state.assignments || {}).map(([assignedTeam, playerName]) => ({
-        team: assignedTeam,
-        player: players.find(p => p.name === playerName) || { name: playerName, email: "" }
-      }));
-
-        exportResults(drawPairs);
-      }
     } catch (error) {
       alert(error.message);
     } finally {
-      window.setTimeout(() => {
-        setIsDrawing(false);
-      }, 250);
+      setIsDrawStarting(false);
     }
   };
 
@@ -347,6 +540,14 @@ export default function App() {
       />
       <h1 className="fifa-title">FIFA WORLD CUP 2026 – SWEEPSTAKE DRAW</h1>
       <p className="sync-status">{connectionStatus}</p>
+      <button
+        type="button"
+        className="enable-audio-button"
+        onClick={enableAudio}
+        disabled={audioEnabled}
+      >
+        {audioEnabled ? "Audio Enabled" : "Enable Audio"}
+      </button>
 
       <div className="input-section">
         <div className="input-row">
@@ -371,10 +572,10 @@ export default function App() {
           </button>
           <button
             onClick={startDraw}
-            disabled={!canStartDraw || isDrawing}
-            className={`draw-button ${isDrawing ? "drawing" : ""}`}
+            disabled={!canStartDraw || isDrawing || isDrawStarting}
+            className={`draw-button ${isDrawing || isDrawStarting ? "drawing" : ""}`}
           >
-            Start Draw
+            {isDrawing || isDrawStarting ? "Drawing..." : "Start Draw"}
           </button>
         </div>
         <div className="csv-upload-row">
