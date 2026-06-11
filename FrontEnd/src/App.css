@@ -130,6 +130,40 @@ html, body {
   background: radial-gradient(circle at top, #0f172a, #020617);
   padding: 0;
   width: 100%;
+  position: relative;
+}
+
+.export-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #03250f;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.28);
+}
+
+.export-button:hover {
+  transform: translateY(-1px);
+}
+
+.main-shell {
+  width: min(1380px, calc(100% - 24px));
+  margin: 0 auto;
+}
+
+.top-panel {
+  margin: 0 auto 16px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(189, 223, 255, 0.2);
+  background: linear-gradient(165deg, rgba(9, 20, 47, 0.78), rgba(3, 10, 28, 0.92));
+  box-shadow: 0 18px 40px rgba(2, 8, 23, 0.4);
 }
 
 .uofg-logo {
@@ -146,6 +180,15 @@ html, body {
   letter-spacing: 2px;
   margin-bottom: 30px;
   color: #fff;
+}
+
+.status-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .input-section {
@@ -281,7 +324,7 @@ html, body {
 
 .groups-wrapper {
   display: flex;
-  gap: 64px;
+  gap: calc(64px + 2cm);
   width: 100%;
   align-items: flex-start;
   justify-content: center;
@@ -294,8 +337,12 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 0 1 280px;
+  flex: 0 0 350px;
   min-width: 0;
+}
+
+.groups-wrapper > .groups-container:last-child {
+  margin-left: 1cm;
 }
 
 .center-pot-section {
@@ -316,14 +363,14 @@ html, body {
   width: min(100%, 300px);
   max-width: 680px;
   z-index: 2;
-  --announcer-offset-x: 180px;
-  --announcer-offset-y: -50px;
-  --seb-offset-x: -50px;
-  --seb-offset-y: -50px;
+  --announcer-offset-x: 172px;
+  --announcer-offset-y: -70px;
+  --seb-offset-x: -42px;
+  --seb-offset-y: -70px;
   --bubble-left-offset-x: -180px;
-  --bubble-left-offset-y: 50px;
+  --bubble-left-offset-y: 30px;
   --bubble-right-offset-x: 300px;
-  --bubble-right-offset-y: -150px;
+  --bubble-right-offset-y: -170px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -497,6 +544,7 @@ html, body {
 
 .player-assignment {
   flex: 1;
+  min-width: 130px;
   padding: 4px 6px;
   background: rgba(255, 255, 255, 0.05);
   border: 2px solid;
@@ -549,14 +597,14 @@ html, body {
   }
 
   .announcer-section {
-    --announcer-offset-x: 120px;
-    --announcer-offset-y: -32px;
-    --seb-offset-x: -24px;
-    --seb-offset-y: -36px;
+    --announcer-offset-x: 112px;
+    --announcer-offset-y: -52px;
+    --seb-offset-x: -16px;
+    --seb-offset-y: -56px;
     --bubble-left-offset-x: -100px;
-    --bubble-left-offset-y: 24px;
+    --bubble-left-offset-y: 4px;
     --bubble-right-offset-x: 170px;
-    --bubble-right-offset-y: -92px;
+    --bubble-right-offset-y: -112px;
   }
 
   .speech-bubble {
@@ -586,16 +634,20 @@ html, body {
     flex: 1 1 auto;
   }
 
+  .groups-wrapper > .groups-container:last-child {
+    margin-left: 0;
+  }
+
   .announcer-section {
     height: 140px;
-    --announcer-offset-x: 86px;
-    --announcer-offset-y: -22px;
-    --seb-offset-x: 8px;
-    --seb-offset-y: -22px;
+    --announcer-offset-x: 78px;
+    --announcer-offset-y: -42px;
+    --seb-offset-x: 16px;
+    --seb-offset-y: -42px;
     --bubble-left-offset-x: -28px;
-    --bubble-left-offset-y: 0;
+    --bubble-left-offset-y: -20px;
     --bubble-right-offset-x: 28px;
-    --bubble-right-offset-y: 0;
+    --bubble-right-offset-y: -20px;
     gap: 8px;
   }
 
@@ -616,6 +668,21 @@ html, body {
 }
 
 @media (max-width: 640px) {
+  .export-button {
+    top: 10px;
+    right: 10px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .main-shell {
+    width: calc(100% - 12px);
+  }
+
+  .top-panel {
+    padding: 12px;
+  }
+
   .uofg-logo {
     width: 220px;
     margin-bottom: 10px;

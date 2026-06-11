@@ -5,7 +5,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000
 const WS_URL = API_BASE_URL.startsWith("https://")
   ? API_BASE_URL.replace("https://", "wss://")
   : API_BASE_URL.replace("http://", "ws://");
-const DRAW_WELCOME_MESSAGE = "Welcome to the University of Glasgow FIFA World Cup 2026 SweepstakeDraw";
+const DRAW_WELCOME_MESSAGE = "Welcome to the University of Glasgow FEEFA World Cup 2026 SweepstakeDraw. I'm your host Ciara Lightboty.";
+const DRAW_SEB_MESSAGE = "And I'm your host Sebotstian Owen. Lets find out which players will be representing each country in this exciting tournament";
 const FEMALE_VOICE_NAME = (import.meta.env.VITE_FEMALE_VOICE_NAME || "").toLowerCase();
 
 const GROUPS = {
@@ -305,6 +306,7 @@ export default function App() {
     }
 
     await speakText(DRAW_WELCOME_MESSAGE, "female");
+    await speakText(DRAW_SEB_MESSAGE, "male");
   };
 
   const callApi = async (path, options = {}) => {
@@ -533,6 +535,18 @@ export default function App() {
 
   return (
     <div className="fifa-root">
+      <button
+        className="export-button"
+        onClick={() => exportResults(
+          Object.entries(assignments).map(([team, playerName]) => {
+            const playerObj = players.find((p) => p.name === playerName) || { name: playerName, email: "" };
+            return { team, player: playerObj };
+          })
+        )}
+      >
+        Export Results
+      </button>
+
       <img
         src="/glasgow-logo.png"
         alt="University of Glasgow logo"
@@ -592,28 +606,28 @@ export default function App() {
 
       <div className="groups-wrapper">
         <div className="groups-container">
-          {leftGroups.map(([group, teams]) => (
-            <div key={group} className="group-section" style={{ borderColor: GROUP_COLORS[group] }}>
-              <div className="group-header" style={{ backgroundColor: GROUP_COLORS[group] }}>
-                <span className="group-label">{group}</span>
+            {leftGroups.map(([group, teams]) => (
+              <div key={group} className="group-section" style={{ borderColor: GROUP_COLORS[group] }}>
+                <div className="group-header" style={{ backgroundColor: GROUP_COLORS[group] }}>
+                  <span className="group-label">{group}</span>
+                </div>
+                <div className="group-teams">
+                  {teams.map((team, idx) => (
+                    <div key={idx} className="team-row">
+                      <span className="team-name">{team}</span>
+                      <input
+                        type="text"
+                        className="player-assignment"
+                        style={{ borderColor: TEAM_COLORS[team] || "#fff" }}
+                        value={assignments[team] || ""}
+                        onChange={e => handleAssignment(group, team, e.target.value)}
+                        placeholder="Player"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="group-teams">
-                {teams.map((team, idx) => (
-                  <div key={idx} className="team-row">
-                    <span className="team-name">{team}</span>
-                    <input
-                      type="text"
-                      className="player-assignment"
-                      style={{ borderColor: TEAM_COLORS[team] || "#fff" }}
-                      value={assignments[team] || ""}
-                      onChange={e => handleAssignment(group, team, e.target.value)}
-                      placeholder="Player"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
 
         <div className="center-pot-section">
@@ -639,56 +653,34 @@ export default function App() {
           </div>
           <img
             src="/podium.webp"
-            alt="Draw Podium"
+            alt="Draw podium"
             className="pot-image"
           />
-
-          {players.length > 0 && (
-            <div className="players-table-section">
-              <h2>Player List</h2>
-              <table className="players-table">
-                <thead>
-                  <tr>
-                    <th>Player Name</th>
-                    <th>Email Address</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {players.map((player, idx) => (
-                    <tr key={idx}>
-                      <td>{player.name}</td>
-                      <td>{player.email || "N/A"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
 
         <div className="groups-container">
-          {rightGroups.map(([group, teams]) => (
-            <div key={group} className="group-section" style={{ borderColor: GROUP_COLORS[group] }}>
-              <div className="group-header" style={{ backgroundColor: GROUP_COLORS[group] }}>
-                <span className="group-label">{group}</span>
+            {rightGroups.map(([group, teams]) => (
+              <div key={group} className="group-section" style={{ borderColor: GROUP_COLORS[group] }}>
+                <div className="group-header" style={{ backgroundColor: GROUP_COLORS[group] }}>
+                  <span className="group-label">{group}</span>
+                </div>
+                <div className="group-teams">
+                  {teams.map((team, idx) => (
+                    <div key={idx} className="team-row">
+                      <span className="team-name">{team}</span>
+                      <input
+                        type="text"
+                        className="player-assignment"
+                        style={{ borderColor: TEAM_COLORS[team] || "#fff" }}
+                        value={assignments[team] || ""}
+                        onChange={e => handleAssignment(group, team, e.target.value)}
+                        placeholder="Player"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="group-teams">
-                {teams.map((team, idx) => (
-                  <div key={idx} className="team-row">
-                    <span className="team-name">{team}</span>
-                    <input
-                      type="text"
-                      className="player-assignment"
-                      style={{ borderColor: TEAM_COLORS[team] || "#fff" }}
-                      value={assignments[team] || ""}
-                      onChange={e => handleAssignment(group, team, e.target.value)}
-                      placeholder="Player"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
     </div>
